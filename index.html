@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>DeepSeek</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;background:#1a1a1a;color:#e5e5e5;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+
+/* ========== 顶栏 ========== */
+header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;background:#1a1a1a;
+  position:relative;z-index:20}
+header .iconBtn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  border:none;background:none;color:#d0d0d0;font-size:19px;cursor:pointer;border-radius:10px}
+header .iconBtn:active{background:#2a2a2a}
+header .title{font-size:16px;font-weight:500;color:#f0f0f0;letter-spacing:.3px}
+
+/* ========== 侧栏 ========== */
+.drawerMask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none}
+.drawerMask.show{display:block}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:78%;max-width:300px;background:#232323;
+  z-index:50;transform:translateX(-100%);transition:transform .22s ease;
+  display:flex;flex-direction:column;padding-top:calc(env(safe-area-inset-top) + 16px)}
+.drawer.show{transform:none}
+.drawer .newBtn{margin:0 14px 12px;padding:11px;border-radius:12px;border:1px solid #3a3a3a;
+  background:transparent;color:#e5e5e5;font-size:14px;cursor:pointer}
+.drawer .newBtn:active{background:#2c2c2c}
+.drawer .list{flex:1;overflow-y:auto;padding:4px 8px 20px}
+.drawer .sItem{padding:11px 12px;border-radius:10px;font-size:14px;color:#c8c8c8;
+  cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.drawer .sItem:active{background:#2c2c2c}
+.drawer .sItem.active{background:#2f2f2f;color:#fff}
+.drawer .foot{padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);
+  border-top:1px solid #2f2f2f;font-size:13px;color:#8b8b8b;cursor:pointer}
+.drawer .foot:active{color:#d0d0d0}
+
+/* ========== 消息区 ========== */
+main{flex:1 1 auto;overflow-y:auto;padding:6px 16px 12px;position:relative}
+main::-webkit-scrollbar{width:0}
+
+/* 首页空状态 */
+#welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding-top:22vh;text-align:center}
+#welcome .logo{font-size:44px;margin-bottom:18px;line-height:1}
+#welcome h2{font-size:21px;font-weight:600;margin:0 0 10px;color:#fff}
+#welcome p{font-size:14px;color:#8b8b8b;margin:0;line-height:1.7}
+
+/* 消息 */
+.msg{margin-bottom:22px;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.msg.user{display:flex;justify-content:flex-end}
+.msg.user .bubble{background:#2b2b2b;color:#f0f0f0;padding:11px 15px;border-radius:18px;
+  max-width:80%;font-size:15.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.ai .body{font-size:15.5px;line-height:1.78;color:#e8e8e8;
+  white-space:pre-wrap;word-break:break-word}
+.msg.ai .body p{margin:0 0 12px}
+.msg.ai .body code{background:#2b2b2b;padding:2px 5px;border-radius:4px;font-size:13.5px}
+.msg.ai .body pre{background:#0f0f0f;padding:12px;border-radius:10px;overflow-x:auto;
+  font-size:13px;line-height:1.5;margin:10px 0}
+.msg.ai .body pre code{background:none;padding:0}
+
+/* 思考过程 */
+.think{background:#232323;border-radius:12px;margin-bottom:12px;overflow:hidden}
+.think .head{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13.5px;
+  color:#9b9b9b;cursor:pointer}
+.think .head .arrow{font-size:10px;transition:transform .2s}
+.think.open .head .arrow{transform:rotate(90deg)}
+.think .content{display:none;padding:0 14px 14px;font-size:13.5px;line-height:1.7;
+  color:#9b9b9b;white-space:pre-wrap;border-top:1px solid #2f2f2f;padding-top:12px}
+.think.open .content{display:block}
+
+/* 消息操作 */
+.actions{display:flex;gap:16px;margin-top:10px}
+.actions button{background:none;border:none;color:#6b6b6b;font-size:13px;
+  cursor:pointer;padding:2px 0;display:flex;align-items:center;gap:4px}
+.actions button:active{color:#b0b0b0}
+
+/* 光标 */
+.cursor::after{content:'▌';color:#4d6bfe;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ========== 底部输入 ========== */
+footer{flex:0 0 auto;padding:6px 12px calc(env(safe-area-inset-bottom) + 8px);background:#1a1a1a}
+.inputBox{background:#2b2b2b;border-radius:22px;padding:10px 14px 8px;
+  border:1px solid transparent;transition:border-color .15s}
+.inputBox:focus-within{border-color:#3d3d3d}
+#input{width:100%;background:none;border:none;color:#f0f0f0;font-size:15.5px;
+  line-height:1.5;resize:none;outline:none;max-height:132px;font-family:inherit;
+  padding:0}
+#input::placeholder{color:#6b6b6b}
+.tools{display:flex;align-items:center;gap:8px;margin-top:8px}
+.chip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:16px;
+  border:1px solid #3d3d3d;background:transparent;color:#b0b0b0;font-size:13px;
+  cursor:pointer;white-space:nowrap}
+.chip:active{background:#333}
+.chip.on{background:#1e2a4d;border-color:#4d6bfe;color:#7d94ff}
+.chip.disabled{opacity:.4}
+.spacer{flex:1}
+#send{width:34px;height:34px;border-radius:50%;border:none;background:#4d6bfe;color:#fff;
+  font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#send:disabled{background:#3a3a3a;color:#666}
+
+/* 设置 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;z-index:100;
+  align-items:center;justify-content:center;padding:20px}
+.mask.show{display:flex}
+.panel{background:#252525;border-radius:18px;padding:22px;width:100%;max-width:380px}
+.panel h2{margin:0 0 18px;font-size:17px;color:#fff}
+.panel label{display:block;font-size:13px;color:#9b9b9b;margin:16px 0 7px}
+.panel input{width:100%;background:#1a1a1a;border:1px solid #3a3a3a;color:#e5e5e5;
+  border-radius:11px;padding:12px;font-size:14px;outline:none;font-family:inherit}
+.panel input:focus{border-color:#4d6bfe}
+.panel .hint{font-size:12px;color:#6b6b6b;margin-top:7px;line-height:1.55}
+.panel .actions{display:flex;gap:10px;margin-top:22px}
+.panel .actions button{flex:1;padding:12px;border-radius:11px;border:none;font-size:15px;cursor:pointer}
+.btnPrimary{background:#4d6bfe;color:#fff}
+.btnGhost{background:#333;color:#c8c8c8}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="iconBtn" onclick="openDrawer()">☰</button>
+  <div class="title" id="hdTitle">DeepSeek</div>
+  <button class="iconBtn" onclick="newChat()">＋</button>
+</header>
+
+<main id="scroll">
+  <div id="welcome">
+    <div class="logo">🐳</div>
+    <h2>我是 DeepSeek</h2>
+    <p>可以帮你写代码、读文件、<br>回答问题，随时提问</p>
+  </div>
+  <div id="msgs"></div>
+</main>
+
+<footer>
+  <div class="inputBox">
+    <textarea id="input" rows="1" placeholder="给 DeepSeek 发送消息" oninput="autoGrow(this)"></textarea>
+    <div class="tools">
+      <button class="chip" id="chipThink" onclick="toggleThink()">🧠 深度思考</button>
+      <button class="chip disabled" onclick="alert('联网搜索需要服务端支持，当前版本未接入')">🌐 联网搜索</button>
+      <div class="spacer"></div>
+      <button id="send" onclick="send()">↑</button>
+    </div>
+  </div>
+</footer>
+
+<!-- 侧栏 -->
+<div class="drawerMask" id="drawerMask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="newBtn" onclick="newChat();closeDrawer()">＋ 开启新对话</button>
+  <div class="list" id="sessionList"></div>
+  <div class="foot" onclick="openSettings()">⚙️ 设置 API Key</div>
+</div>
+
+<!-- 设置 -->
+<div class="mask" id="mask">
+  <div class="panel">
+    <h2>设置</h2>
+    <label>DeepSeek API Key</label>
+    <input id="keyInput" type="password" placeholder="sk-..." autocomplete="off">
+    <div class="hint">在 platform.deepseek.com 创建。只存在这台手机里，不会上传到任何地方。</div>
+    <div class="actions">
+      <button class="btnGhost" onclick="closeSettings()">取消</button>
+      <button class="btnPrimary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://api.deepseek.com/chat/completions';
+const LS_KEY = 'ds_api_key';
+const LS_SESSIONS = 'ds_sessions';
+const LS_CUR = 'ds_current';
+
+let sessions = [];      // [{id,title,messages:[{role,content,reasoning?}],ts}]
+let curId = null;
+let busy = false;
+let thinkOn = false;
+
+const $msgs = document.getElementById('msgs');
+const $scroll = document.getElementById('scroll');
+const $input = document.getElementById('input');
+const $send = document.getElementById('send');
+const $welcome = document.getElementById('welcome');
+
+/* ================= 初始化 ================= */
+(function init(){
+  try { sessions = JSON.parse(localStorage.getItem(LS_SESSIONS) || '[]'); } catch(e){ sessions = []; }
+  curId = localStorage.getItem(LS_CUR);
+  const cur = sessions.find(s => s.id === curId);
+  if (cur) renderSession(cur);
+  else { curId = null; showWelcome(); }
+  renderSessionList();
+  if (!localStorage.getItem(LS_KEY)) setTimeout(openSettings, 400);
+})();
+
+function save(){
+  localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+  if (curId) localStorage.setItem(LS_CUR, curId);
+}
+
+function currentSession(){ return sessions.find(s => s.id === curId); }
+
+function ensureSession(firstText){
+  let s = currentSession();
+  if (s) return s;
+  s = { id: 's' + Date.now(), title: (firstText || '新对话').slice(0, 20), messages: [], ts: Date.now() };
+  sessions.unshift(s);
+  curId = s.id;
+  showWelcome();
+  save();
+  renderSessionList();
+  return s;
+}
+
+/* ================= 渲染 ================= */
+function showWelcome(){
+  $welcome.style.display = 'flex';
+  $msgs.innerHTML = '';
+  document.getElementById('hdTitle').textContent = 'DeepSeek';
+}
+
+function renderSession(s){
+  $welcome.style.display = 'none';
+  $msgs.innerHTML = '';
+  document.getElementById('hdTitle').textContent = s.title || 'DeepSeek';
+  s.messages.forEach(m => {
+    if (m.role === 'user') addUserBubble(m.content);
+    else addAiBlock(m.content, m.reasoning, false);
+  });
+  scrollBottom();
+}
+
+function addUserBubble(text){
+  const d = document.createElement('div');
+  d.className = 'msg user';
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = text;
+  d.appendChild(b);
+  $msgs.appendChild(d);
+  return b;
+}
+
+function addAiBlock(text, reasoning, live){
+  const d = document.createElement('div');
+  d.className = 'msg ai';
+
+  let thinkEl = null, thinkContent = null;
+  if (reasoning && reasoning.length) {
+    thinkEl = document.createElement('div');
+    thinkEl.className = 'think';
+    thinkEl.innerHTML = '<div class="head"><span class="arrow">▶</span><span class="lab">已深度思考</span></div><div class="content"></div>';
+    thinkContent = thinkEl.querySelector('.content');
+    thinkContent.textContent = reasoning;
+    thinkEl.querySelector('.head').onclick = () => thinkEl.classList.toggle('open');
+    d.appendChild(thinkEl);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'body';
+  body.textContent = text || '';
+  d.appendChild(body);
+
+  const act = document.createElement('div');
+  act.className = 'actions';
+  act.style.display = live ? 'none' : 'flex';
+  act.innerHTML = '<button onclick="copyText(this)">⧉ 复制</button><button onclick="regen(this)">↻ 重新生成</button>';
+  d.appendChild(act);
+
+  $msgs.appendChild(d);
+  return { root: d, body, thinkEl, thinkContent, act };
+}
+
+function scrollBottom(){ setTimeout(()=>{ $scroll.scrollTop = $scroll.scrollHeight; }, 10); }
+
+/* ================= 侧栏 ================= */
+function openDrawer(){
+  renderSessionList();
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('drawerMask').classList.add('show');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('drawerMask').classList.remove('show');
+}
+function renderSessionList(){
+  const el = document.getElementById('sessionList');
+  el.innerHTML = '';
+  sessions.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'sItem' + (s.id === curId ? ' active' : '');
+    d.textContent = s.title || '新对话';
+    d.onclick = () => { curId = s.id; save(); renderSession(s); closeDrawer(); };
+    el.appendChild(d);
+  });
+}
+
+/* ================= 新对话 ================= */
+function newChat(){
+  if (busy) return;
+  curId = null;
+  localStorage.removeItem(LS_CUR);
+  showWelcome();
+  $input.focus();
+}
+
+/* ================= 深度思考开关 ================= */
+function toggleThink(){
+  thinkOn = !thinkOn;
+  document.getElementById('chipThink').classList.toggle('on', thinkOn);
+}
+
+/* ================= 设置 ================= */
+function openSettings(){
+  document.getElementById('keyInput').value = localStorage.getItem(LS_KEY) || '';
+  document.getElementById('mask').classList.add('show');
+  closeDrawer();
+}
+function closeSettings(){ document.getElementById('mask').classList.remove('show'); }
+function saveSettings(){
+  const k = document.getElementById('keyInput').value.trim();
+  if (!k) { alert('请先填 API Key'); return; }
+  localStorage.setItem(LS_KEY, k);
+  closeSettings();
+}
+
+/* ================= 复制 / 重新生成 ================= */
+function copyText(btn){
+  const body = btn.closest('.msg').querySelector('.body');
+  const t = body.textContent;
+  navigator.clipboard.writeText(t).then(()=>{
+    const old = btn.textContent; btn.textContent = '✓ 已复制';
+    setTimeout(()=>btn.textContent = old, 1200);
+  }).catch(()=>alert('复制失败'));
+}
+
+function regen(btn){
+  if (busy) return;
+  const s = currentSession(); if (!s) return;
+
+  // 找到被点的那条 AI 消息，往上找它对应的那句提问
+  const target = btn.closest('.msg');
+  const all = [...$msgs.children];
+  const domIdx = all.indexOf(target);
+  if (domIdx < 0) return;
+
+  let userDomIdx = -1;
+  for (let i = domIdx - 1; i >= 0; i--) {
+    if (all[i].classList.contains('user')) { userDomIdx = i; break; }
+  }
+  if (userDomIdx < 0) return;
+
+  // 数一下 DOM 里到这句为止有几个 user，映射回 s.messages 的下标
+  let userCount = 0;
+  for (let i = 0; i <= userDomIdx; i++) {
+    if (all[i].classList.contains('user')) userCount++;
+  }
+  const users = s.messages.filter(m => m.role === 'user');
+  const userMsg = users[userCount - 1];
+  if (!userMsg) return;
+
+  // 保留到这句提问（含），删掉它后面的所有回复
+  const cutPos = s.messages.lastIndexOf(userMsg);
+  s.messages = s.messages.slice(0, cutPos + 1);
+  save();
+  renderSession(s);
+  doRequest(userMsg.content, true);
+}
+
+/* ================= 发送 ================= */
+async function send(){
+  if (busy) return;
+  const text = $input.value.trim();
+  if (!text) return;
+  if (!localStorage.getItem(LS_KEY)) { openSettings(); return; }
+
+  $input.value = '';
+  autoGrow($input);
+  doRequest(text, false);
+}
+
+async function doRequest(userText, isRegen){
+  const s = ensureSession(userText);
+  if (!isRegen) {
+    s.messages.push({ role: 'user', content: userText });
+    $welcome.style.display = 'none';
+    addUserBubble(userText);
+    if (!s.title || s.title === '新对话') {
+      s.title = userText.slice(0, 20);
+      document.getElementById('hdTitle').textContent = s.title;
+    }
+    save();
+  }
+
+  busy = true;
+  $send.disabled = true;
+
+  const node = addAiBlock('', '', true);
+  let full = '';
+  let reasoning = '';
+  let thinkNode = null;
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem(LS_KEY)
+      },
+      body: JSON.stringify({
+        model: thinkOn ? 'deepseek-reasoner' : 'deepseek-chat',
+        messages: s.messages.map(m => ({ role: m.role, content: m.content })),
+        stream: true
+      })
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error('HTTP ' + res.status + '\n' + t.slice(0, 300));
+    }
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder('utf-8');
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line.startsWith('data:')) continue;
+        const p = line.slice(5).trim();
+        if (p === '[DONE]') continue;
+        let j;
+        try { j = JSON.parse(p); } catch(e) { continue; }
+        const d = j.choices && j.choices[0] && j.choices[0].delta;
+        if (!d) continue;
+
+        if (d.reasoning_content) {
+          reasoning += d.reasoning_content;
+          if (!thinkNode) {
+            thinkNode = document.createElement('div');
+            thinkNode.className = 'think open';
+            thinkNode.innerHTML = '<div class="head"><span class="arrow">▶</span><span class="lab">正在深度思考…</span></div><div class="content"></div>';
+            thinkNode.querySelector('.head').onclick = () => thinkNode.classList.toggle('open');
+            node.root.insertBefore(thinkNode, node.body);
+          }
+          thinkNode.querySelector('.content').textContent = reasoning;
+          scrollBottom();
+        }
+
+        if (d.content) {
+          full += d.content;
+          node.body.textContent = full;
+          node.body.classList.add('cursor');
+          scrollBottom();
+        }
+      }
+    }
+
+    node.body.classList.remove('cursor');
+    if (thinkNode) {
+      thinkNode.querySelector('.lab').textContent = '已深度思考';
+      thinkNode.classList.remove('open');
+    }
+
+    if (!full) node.body.textContent = '（没有返回内容）';
+
+    s.messages.push({ role: 'assistant', content: full, reasoning: reasoning || undefined });
+    save();
+    node.act.style.display = 'flex';
+
+  } catch (e) {
+    node.body.classList.remove('cursor');
+    node.body.textContent = '请求失败：' + (e.message || e);
+    node.act.style.display = 'none';
+    if (!isRegen) { s.messages.pop(); save(); }
+  } finally {
+    busy = false;
+    $send.disabled = false;
+    scrollBottom();
+  }
+}
+
+/* ================= 输入框 ================= */
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 132) + 'px';
+}
+$input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 720) {
+    e.preventDefault(); send();
+  }
+});
+</script>
+</body>
+</html>
